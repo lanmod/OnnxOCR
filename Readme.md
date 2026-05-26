@@ -12,7 +12,7 @@ If this project helps you, please consider giving it a **Star**.
 ![Python Version](https://img.shields.io/badge/python-%3E%3D3.8-blue.svg)
 ![AtomGit Star](https://atomgit.com/OnnxOCR/OnnxOCR/star/badge.svg)
 
-English | [简体中文](./Readme_cn.md)
+English | [简体中文](./Readme_cn.md) | [日本語](./Readme_ja.md)
 
 ## Version Updates
 
@@ -112,6 +112,37 @@ img = cv2.imread("onnxocr/test_images/715873facf064583b44ef28295126fa7.jpg")
 model = ONNXPaddleOcr(use_angle_cls=False, use_gpu=False)
 result = model.ocr(img)
 print(result)
+```
+
+### Japanese OCR Example
+
+The PP-OCRv5 general OCR model also supports Japanese. A Japanese sample image is included in the repository:
+
+![Japanese OCR sample](onnxocr/test_images/japan_2.jpg)
+
+```python
+import cv2
+from onnxocr.onnx_paddleocr import ONNXPaddleOcr
+
+img = cv2.imread("onnxocr/test_images/japan_2.jpg")
+model = ONNXPaddleOcr(use_angle_cls=False, use_gpu=False)
+result = model.ocr(img)
+
+for line in result[0]:
+    text, score = line[1]
+    print(text, score)
+```
+
+Example output:
+
+```text
+もちもち 0.9998
+天然の 0.9999
+とろっと後味のよい 0.9945
+濃厚な 0.9442
+味わい深い 0.9887
+なめらかな 0.9920
+焼きたて 0.9996
 ```
 
 ## License Plate Recognition

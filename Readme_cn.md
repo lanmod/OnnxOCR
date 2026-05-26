@@ -12,7 +12,7 @@
 ![Python Version](https://img.shields.io/badge/python-%3E%3D3.8-blue.svg)
 ![AtomGit Star](https://atomgit.com/OnnxOCR/OnnxOCR/star/badge.svg)
 
-[English](./Readme.md) | 简体中文
+[English](./Readme.md) | 简体中文 | [日本語](./Readme_ja.md)
 
 ## 版本更新
 
@@ -118,6 +118,37 @@ img = cv2.imread("onnxocr/test_images/715873facf064583b44ef28295126fa7.jpg")
 model = ONNXPaddleOcr(use_angle_cls=False, use_gpu=False)
 result = model.ocr(img)
 print(result)
+```
+
+### 日本语 OCR 示例
+
+PP-OCRv5 通用 OCR 模型也支持日文识别。仓库内置了日文样例图片：
+
+![日本语 OCR 示例](onnxocr/test_images/japan_2.jpg)
+
+```python
+import cv2
+from onnxocr.onnx_paddleocr import ONNXPaddleOcr
+
+img = cv2.imread("onnxocr/test_images/japan_2.jpg")
+model = ONNXPaddleOcr(use_angle_cls=False, use_gpu=False)
+result = model.ocr(img)
+
+for line in result[0]:
+    text, score = line[1]
+    print(text, score)
+```
+
+示例输出：
+
+```text
+もちもち 0.9998
+天然の 0.9999
+とろっと後味のよい 0.9945
+濃厚な 0.9442
+味わい深い 0.9887
+なめらかな 0.9920
+焼きたて 0.9996
 ```
 
 ## 车牌识别
