@@ -306,7 +306,7 @@ class UniMERNetDecode(object):
         """
         text_reg = r"(\\(operatorname|mathrm|text|mathbf)\s?\*? {.*?})"
         letter = "[a-zA-Z]"
-        noletter = "[\W_^\d]"
+        noletter = r"[\W_^\d]"
         names = []
         for x in re.findall(text_reg, s):
             pattern = r"\\[a-zA-Z]+"

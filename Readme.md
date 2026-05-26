@@ -114,37 +114,6 @@ result = model.ocr(img)
 print(result)
 ```
 
-### Japanese OCR Example
-
-The PP-OCRv5 general OCR model also supports Japanese. A Japanese sample image is included in the repository:
-
-![Japanese OCR sample](onnxocr/test_images/japan_2.jpg)
-
-```python
-import cv2
-from onnxocr.onnx_paddleocr import ONNXPaddleOcr
-
-img = cv2.imread("onnxocr/test_images/japan_2.jpg")
-model = ONNXPaddleOcr(use_angle_cls=False, use_gpu=False)
-result = model.ocr(img)
-
-for line in result[0]:
-    text, score = line[1]
-    print(text, score)
-```
-
-Example output:
-
-```text
-もちもち 0.9998
-天然の 0.9999
-とろっと後味のよい 0.9945
-濃厚な 0.9442
-味わい深い 0.9887
-なめらかな 0.9920
-焼きたて 0.9996
-```
-
 ## License Plate Recognition
 
 License plate recognition is integrated into `ONNXPaddleOcr` as an optional mode. Existing general OCR usage is unchanged.
@@ -269,21 +238,47 @@ Only `onnxocr/inference_engine.py` imports `onnxruntime` directly. Feature modul
 
 ## API Service
 
-Start service:
+`app-service.py` is the deployable JSON API service. `webui.py` is the browser UI service. Keeping them separate makes the repository easier to deploy, test, and extend.
+
+Start API service:
 
 ```bash
 python app-service.py
 ```
 
-Main endpoints:
+Environment variables:
 
+- `ONNXOCR_PORT`: service port, default `5005`.
+- `ONNXOCR_USE_GPU`: set to `1` / `true` to enable GPU providers.
+- `ONNXOCR_DEBUG`: set to `1` / `true` to enable Flask debug mode.
+- `ONNXOCR_OUTPUT_DIR`: output directory for generated Markdown/assets, default `result_img`.
+- `ONNXOCR_MAX_UPLOAD_MB`: max upload size in MB, default `200`.
+
+Main endpoints accept JSON base64 images or multipart file uploads:
+
+- `/health`: service health check.
 - `/ocr`: general OCR.
 - `/plate`: license plate recognition.
 - `/table`: table recognition.
 - `/layout`: layout analysis.
 - `/layout_markdown`: image/PDF to Markdown.
 
-WebUI:
+JSON example:
+
+```bash
+curl -X POST http://127.0.0.1:5005/ocr \
+  -H "Content-Type: application/json" \
+  -d "{\"image\":\"<base64-image>\"}"
+```
+
+Multipart example:
+
+```bash
+curl -X POST http://127.0.0.1:5005/ocr \
+  -F "image=@onnxocr/test_images/715873facf064583b44ef28295126fa7.jpg"
+```
+
+Start WebUI:
 
 ```bash
 python webui.py
@@ -296,9 +291,20 @@ docker build -t ocr-service .
 docker run -itd --name onnxocr-service -p 5006:5005 ocr-service
 ```
 
+The Docker image excludes generated outputs and optional large model artifacts through `.dockerignore`. Mount or download optional models when you need plate, table, layout, or RapidDoc features.
+
 ## Project Layout
 
 ```text
+app-service.py                 # deployable JSON API service
+webui.py                       # browser UI service
+test_ocr.py                    # one-click local OCR demo
+requirements.txt               # runtime dependencies
+Dockerfile                     # container image for API deployment
+.dockerignore                  # keeps caches/outputs/large models out of Docker context
+Readme.md                      # English documentation
+Readme_cn.md                   # Simplified Chinese documentation
+Readme_ja.md                   # Japanese documentation
 onnxocr/
   inference_engine.py        # single ONNXRuntime entry
   onnx_paddleocr.py          # public user API
@@ -313,7 +319,9 @@ onnxocr/
   rapid_table/               # source-level RapidTable ONNX integration
   rapid_doc/                 # source-level RapidDoc ONNX integration
   models/                    # local ONNX models
-tests/                       # feature-specific tests
+scripts/
+  download_models.py         # optional model download/check helper
+tests/                       # feature-specific tests and API smoke tests
 ```
 
 ## Effect Demonstration
@@ -353,4 +361,24 @@ If you recognize this project, you can support it via Alipay or WeChat Pay.
 
 ## Contribution Guidelines
 
-Issues and Pull Requests are welcome.
+Issues and Pull Requests are welcome. To keep the project usable for open-source users, please follow these rules:
+
+1. Keep API-only behavior in `app-service.py` and browser/UI behavior in `webui.py`.
+2. Do not commit generated files from `result_img/`, `results/`, `uploads/`, or local cache directories.
+3. Do not commit private documents, ID cards, bank cards, medical records, contracts, waybills, or production secrets.
+4. Use public samples, official examples, or authorized anonymized samples for tests and documentation.
+5. If a feature requires optional model files, document the exact model files and download command.
+6. Keep README examples runnable against the current repository. Do not document commands that are not implemented.
+
+Recommended checks before opening a pull request:
+
+```bash
+python -B -m pytest tests/test_app_service.py -p no:cacheprovider
+python tests/test_general_ocr.py
+python tests/test_license_plate_ocr.py
+python tests/test_table_ocr.py
+python tests/test_layout_analysis.py
+python tests/test_layout_markdown.py
+```
+
+Some tests require optional model files. If you cannot run them locally, mention the missing model files in your pull request.

@@ -233,19 +233,51 @@ from onnxocr.inference_engine import create_session
 
 ## API サービス
 
-Flask サービスを起動します。
+`app-service.py` はデプロイ向けの JSON API サービスです。`webui.py` はブラウザ UI サービスです。API と UI を分けることで、デプロイ、テスト、保守がしやすくなります。
+
+API サービスを起動します。
 
 ```bash
-python app.py
+python app-service.py
 ```
 
-主なエンドポイント：
+環境変数：
 
+- `ONNXOCR_PORT`：サービスポート。デフォルトは `5005`。
+- `ONNXOCR_USE_GPU`：`1` / `true` を指定すると GPU provider を使います。
+- `ONNXOCR_DEBUG`：`1` / `true` を指定すると Flask debug を有効にします。
+- `ONNXOCR_OUTPUT_DIR`：Markdown とアセットの出力先。デフォルトは `result_img`。
+- `ONNXOCR_MAX_UPLOAD_MB`：最大アップロードサイズ。デフォルトは `200` MB。
+
+主なエンドポイントは JSON base64 画像と multipart ファイルアップロードに対応します。
+
+- `/health`：ヘルスチェック。
 - `/ocr`：汎用 OCR。
 - `/plate`：ナンバープレート認識。
 - `/table`：表認識。
 - `/layout`：レイアウト解析。
 - `/layout_markdown`：文書画像を Markdown に変換。
+
+JSON 例：
+
+```bash
+curl -X POST http://127.0.0.1:5005/ocr \
+  -H "Content-Type: application/json" \
+  -d "{\"image\":\"<base64-image>\"}"
+```
+
+multipart 例：
+
+```bash
+curl -X POST http://127.0.0.1:5005/ocr \
+  -F "image=@onnxocr/test_images/japan_2.jpg"
+```
+
+WebUI を起動します。
+
+```bash
+python webui.py
+```
 
 ## Docker
 
@@ -254,59 +286,62 @@ docker build -t ocr-service .
 docker run -itd --name onnxocr-service -p 5006:5005 ocr-service
 ```
 
-## Agent 向け垂直 OCR CLI
+Docker build では `.dockerignore` により、キャッシュ、生成結果、任意の大きなモデルファイルを除外します。ナンバープレート、表、レイアウト、RapidDoc などの拡張モデルは、必要に応じてコンテナ内でダウンロードするか、実行時にマウントしてください。
 
-OnnxOCR には、Claude Code、Codex などの Agent ツールから直接呼び出しやすい CLI レイヤーがあります。固定テンプレートの業界文書を、安定した JSON フィールドとして抽出するための仕組みです。
+## プロジェクト構成
 
-```bash
-pip install -e .
-
-onnocr list
-onnocr list --candidates
-onnocr schema transport.train_ticket
-onnocr run transport.train_ticket data/samples/scid_train_ticket.jpg --pretty
+```text
+app-service.py                 # デプロイ向け JSON API サービス
+webui.py                       # ブラウザ UI サービス
+test_ocr.py                    # ローカル OCR デモ
+requirements.txt               # 実行時依存
+Dockerfile                     # API サービス用コンテナ
+.dockerignore                  # キャッシュ、出力、大きなモデルを除外
+Readme.md                      # 英語ドキュメント
+Readme_cn.md                   # 中国語ドキュメント
+Readme_ja.md                   # 日本語ドキュメント
+onnxocr/
+  inference_engine.py          # 統一 ONNXRuntime 入口
+  onnx_paddleocr.py            # 公開 Python API
+  predict_det.py               # 汎用 OCR 検出
+  predict_rec.py               # 汎用 OCR 認識
+  orientation.py               # RapidOrientation ONNX 適配
+  license_plate.py             # ナンバープレート認識
+  table_recognition.py         # 表認識
+  layout_recognition.py        # レイアウト解析
+  layout_markdown.py           # RapidDoc Markdown 出力
+  rapid_layout/                # RapidLayout 統合
+  rapid_table/                 # RapidTable 統合
+  rapid_doc/                   # RapidDoc 統合
+  models/                      # ローカル ONNX モデル
+scripts/
+  download_models.py           # 任意モデルのダウンロード/確認
+tests/                         # 機能テストと API スモークテスト
 ```
-
-明示的なモジュール形式も利用できます。
-
-```bash
-onnocr onnxocr.skill_cli list
-onnocr onnxocr.skill_cli run vehicle.plate onnxocr/test_images/license_plate_single_blue.jpg --pretty
-```
-
-デフォルトで有効なシナリオは、実画像でスモークテスト済みのものだけです。候補シナリオは `--candidates` で確認できます。
-
-## なぜ大規模モデル Agent だけではないのか
-
-大規模モデルの視覚理解は自由形式の説明や判断に強い一方で、垂直 OCR では次のような工程上の価値が重要になります。
-
-- **再現性**：同じ画像から安定したフィールドを抽出しやすい。
-- **オフライン実行**：ONNXRuntime により、社内ネットワークやエッジデバイスでも動かしやすい。
-- **低コスト**：大量帳票をすべて外部の視覚モデルに送る必要がありません。
-- **監査性**：どのテキストからどのフィールドを抽出したか追跡しやすい。
-- **組み合わせやすさ**：OnnxOCR が構造化 JSON を出し、Agent が確認、修正、登録、業務判断を行えます。
 
 ## コントリビューション
 
-Issues と Pull Requests を歓迎します。垂直 OCR CLI に貢献する場合は、次の方針を守ってください。
+Issues と Pull Requests を歓迎します。オープンソース利用者が README の手順どおりに試せるよう、次のルールを守ってください。
 
-1. 新しいシナリオは、まず候補テンプレートとして追加してください。
-2. フィールド ID は英語の `snake_case`、表示名・説明・ラベルは中国語優先で書いてください。必要に応じて英語別名も追加できます。
-3. `tests/test_skills.py` に、モデルファイルに依存しない OCR 行ベースの単体テストを追加してください。
-4. 実画像サンプルを使う場合は、公開サンプルまたは許可を得た匿名化サンプルだけを使ってください。
-5. 個人情報、銀行カード、医療文書、契約書、配送伝票などの実データをそのままコミットしないでください。
-6. デフォルトシナリオへ昇格するには、実画像スモークテストと評価記録が必要です。
+1. API 専用の処理は `app-service.py`、ブラウザ UI の処理は `webui.py` に置いてください。
+2. `result_img/`、`results/`、`uploads/`、ローカルキャッシュの生成物をコミットしないでください。
+3. 個人情報、銀行カード、医療文書、契約書、配送伝票、秘密鍵などをコミットしないでください。
+4. テストと文書サンプルには、公開サンプル、公式サンプル、または許可を得た匿名化サンプルだけを使ってください。
+5. 任意モデルが必要な機能では、必要なモデルファイルとダウンロード手順を明記してください。
+6. README に書くコマンドは、現在のリポジトリに実装が存在するものだけにしてください。
 
-ローカル検証：
+Pull Request 前の推奨チェック：
 
 ```bash
-pip install -e .
-onnocr list
-onnocr list --candidates
-onnocr schema <skill_id> --candidates
-onnocr run <skill_id> <image_path> --pretty --candidates
-python -B -m pytest tests/test_skills.py -p no:cacheprovider
+python -B -m pytest tests/test_app_service.py -p no:cacheprovider
+python tests/test_general_ocr.py
+python tests/test_license_plate_ocr.py
+python tests/test_table_ocr.py
+python tests/test_layout_analysis.py
+python tests/test_layout_markdown.py
 ```
+
+一部のテストは任意モデルファイルを必要とします。ローカルで実行できない場合は、Pull Request に不足しているモデルファイルを書いてください。
 
 ## 表示例
 

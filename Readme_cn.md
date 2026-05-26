@@ -120,37 +120,6 @@ result = model.ocr(img)
 print(result)
 ```
 
-### 日本语 OCR 示例
-
-PP-OCRv5 通用 OCR 模型也支持日文识别。仓库内置了日文样例图片：
-
-![日本语 OCR 示例](onnxocr/test_images/japan_2.jpg)
-
-```python
-import cv2
-from onnxocr.onnx_paddleocr import ONNXPaddleOcr
-
-img = cv2.imread("onnxocr/test_images/japan_2.jpg")
-model = ONNXPaddleOcr(use_angle_cls=False, use_gpu=False)
-result = model.ocr(img)
-
-for line in result[0]:
-    text, score = line[1]
-    print(text, score)
-```
-
-示例输出：
-
-```text
-もちもち 0.9998
-天然の 0.9999
-とろっと後味のよい 0.9945
-濃厚な 0.9442
-味わい深い 0.9887
-なめらかな 0.9920
-焼きたて 0.9996
-```
-
 ## 车牌识别
 
 车牌识别作为可选模式融合到 `ONNXPaddleOcr` 中，默认仍使用原来的通用 OCR 流程。
@@ -275,21 +244,47 @@ from onnxocr.inference_engine import create_session
 
 ## API 服务
 
-启动服务：
+`app-service.py` 是用于部署的 JSON API 服务，`webui.py` 是浏览器可视化服务。两者分离后，项目更容易部署、测试和维护。
+
+启动 API 服务：
 
 ```bash
 python app-service.py
 ```
 
-主要接口：
+环境变量：
 
+- `ONNXOCR_PORT`：服务端口，默认 `5005`。
+- `ONNXOCR_USE_GPU`：设为 `1` / `true` 时启用 GPU provider。
+- `ONNXOCR_DEBUG`：设为 `1` / `true` 时启用 Flask debug。
+- `ONNXOCR_OUTPUT_DIR`：Markdown 和资源输出目录，默认 `result_img`。
+- `ONNXOCR_MAX_UPLOAD_MB`：最大上传大小，单位 MB，默认 `200`。
+
+主要接口支持 JSON base64 图片，也支持 multipart 文件上传：
+
+- `/health`：服务健康检查。
 - `/ocr`：通用 OCR。
 - `/plate`：车牌识别。
 - `/table`：表格识别。
 - `/layout`：版面分析。
 - `/layout_markdown`：图片或 PDF 转 Markdown。
 
-WebUI：
+JSON 示例：
+
+```bash
+curl -X POST http://127.0.0.1:5005/ocr \
+  -H "Content-Type: application/json" \
+  -d "{\"image\":\"<base64-image>\"}"
+```
+
+multipart 示例：
+
+```bash
+curl -X POST http://127.0.0.1:5005/ocr \
+  -F "image=@onnxocr/test_images/715873facf064583b44ef28295126fa7.jpg"
+```
+
+启动 WebUI：
 
 ```bash
 python webui.py
@@ -302,9 +297,20 @@ docker build -t ocr-service .
 docker run -itd --name onnxocr-service -p 5006:5005 ocr-service
 ```
 
+Docker 构建通过 `.dockerignore` 排除缓存、运行输出和可选大模型文件。车牌、表格、版面分析、RapidDoc 等扩展模型可以在镜像内按需下载，也可以运行时挂载。
+
 ## 代码结构
 
 ```text
+app-service.py                 # 可部署 JSON API 服务
+webui.py                       # 浏览器可视化服务
+test_ocr.py                    # 本地一键 OCR 示例
+requirements.txt               # 运行依赖
+Dockerfile                     # API 服务容器镜像
+.dockerignore                  # 排除缓存、输出和大模型文件
+Readme.md                      # 英文文档
+Readme_cn.md                   # 中文文档
+Readme_ja.md                   # 日文文档
 onnxocr/
   inference_engine.py        # 唯一 ONNXRuntime 入口
   onnx_paddleocr.py          # 用户统一调用入口
@@ -319,7 +325,9 @@ onnxocr/
   rapid_table/               # RapidTable 源码级 ONNX 集成
   rapid_doc/                 # RapidDoc 源码级 ONNX 集成
   models/                    # 本地 ONNX 模型
-tests/                       # 独立功能测试
+scripts/
+  download_models.py         # 可选模型下载/检查脚本
+tests/                       # 独立功能测试和 API 烟测
 ```
 
 ## 效果展示
@@ -359,4 +367,24 @@ tests/                       # 独立功能测试
 
 ## 贡献指南
 
-欢迎提交 Issues 和 Pull Requests，共同改进项目。
+欢迎提交 Issues 和 Pull Requests，共同改进项目。为了保证开源用户按文档操作时不踩坑，请遵守以下约定：
+
+1. API-only 能力放在 `app-service.py`，浏览器 WebUI 能力放在 `webui.py`。
+2. 不提交 `result_img/`、`results/`、`uploads/` 或本地缓存目录中的生成文件。
+3. 不提交客户真实单据、身份证、银行卡、医疗记录、合同、快递面单、生产密钥等敏感数据。
+4. 测试和文档样例只使用公开样例、官方示例或经过授权的脱敏样例。
+5. 如果功能依赖可选模型文件，请在 PR 中说明具体模型文件和下载命令。
+6. README 中出现的命令必须能在当前仓库中找到对应实现，不要写未实现的入口。
+
+提交前建议检查：
+
+```bash
+python -B -m pytest tests/test_app_service.py -p no:cacheprovider
+python tests/test_general_ocr.py
+python tests/test_license_plate_ocr.py
+python tests/test_table_ocr.py
+python tests/test_layout_analysis.py
+python tests/test_layout_markdown.py
+```
+
+部分测试依赖可选模型文件。如果本地无法运行，请在 PR 中说明缺少哪些模型文件。

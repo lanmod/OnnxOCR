@@ -1,0 +1,30 @@
+.git
+.pytest_cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+.env
+.venv
+env
+venv
+
+result_img
+results
+uploads
+output
+pytest-cache-files-*
+
+onnxocr.egg-info
+build
+dist
+
+# Optional model artifacts are large. Download them inside the image only when needed,
+# or mount them at runtime.
+onnxocr/models/*
+!onnxocr/models/ppocrv5
+!onnxocr/models/ppocrv5/**
+!onnxocr/models/orientation
+!onnxocr/models/orientation/**
