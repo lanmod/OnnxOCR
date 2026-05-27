@@ -166,6 +166,9 @@ onnxocr/models/*
 !onnxocr/models/ppocrv5/**
 !onnxocr/models/orientation/
 !onnxocr/models/orientation/**
+!onnxocr/models/qwen_2b/
+onnxocr/models/qwen_2b/**
+!onnxocr/models/qwen_2b/.gitkeep
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore

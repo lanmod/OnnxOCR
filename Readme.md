@@ -1,4 +1,4 @@
-# OnnxOCR
+﻿# OnnxOCR
 
 If this project helps you, please consider giving it a **Star**.
 
@@ -15,6 +15,12 @@ If this project helps you, please consider giving it a **Star**.
 English | [简体中文](./Readme_cn.md) | [日本語](./Readme_ja.md)
 
 ## Version Updates
+
+- **2026.05.27**
+  1. Added a new OCR + Qwen3.5-2B ONNX information-extraction workflow.
+  2. Added `examples/qwen35_2b_onnx.py` for Qwen3.5-2B ONNX download, verification, and pure Python inference.
+  3. Added `examples/id_card_extract_with_qwen.py` as an end-to-end example: OnnxOCR full-text recognition first, then Qwen3.5-2B extracts structured ID-card fields.
+  4. Qwen3.5-2B ONNX uses a dedicated ModelScope repository: [supersong/qwen2bonnx](https://www.modelscope.cn/models/supersong/qwen2bonnx/tree/master/models).
 
 - **2026.05.01**
   1. Added ONNX license plate detection and recognition.
@@ -82,6 +88,39 @@ To check local models only:
 python scripts/download_models.py --check-only
 ```
 
+### Qwen3.5-2B Extraction Backbone
+
+OnnxOCR can also use a local Qwen3.5-2B ONNX model as an information-extraction backbone after OCR. This is useful for workflows such as:
+
+- OCR first: run OnnxOCR to get full-page text and text boxes.
+- Extract second: send the OCR text into Qwen3.5-2B ONNX to produce structured JSON.
+- Keep data local: both OCR and extraction run with local Python + ONNXRuntime.
+
+Qwen3.5-2B ONNX uses a dedicated model repository, separate from other optional OCR models:
+
+- ModelScope: [supersong/qwen2bonnx](https://www.modelscope.cn/models/supersong/qwen2bonnx/tree/master/models)
+- Local path: `onnxocr/models/qwen_2b`
+
+Prepare the Qwen3.5-2B ONNX files:
+
+```bash
+python examples/qwen35_2b_onnx.py download --variant q4
+python examples/qwen35_2b_onnx.py verify
+```
+
+The model is stored under:
+
+```text
+onnxocr/models/qwen_2b
+```
+
+Pure Python text or image-text smoke test:
+
+```bash
+python examples/qwen35_2b_onnx.py run-python --prompt "Hello, introduce yourself briefly."
+python examples/qwen35_2b_onnx.py run-python --image onnxocr/models/qwen_2b/images/demo.jpeg --prompt "Describe this image in one short sentence."
+```
+
 ## One-Click Run
 
 ```bash
@@ -113,6 +152,30 @@ model = ONNXPaddleOcr(use_angle_cls=False, use_gpu=False)
 result = model.ocr(img)
 print(result)
 ```
+
+## OCR + Qwen Information Extraction
+
+`examples/id_card_extract_with_qwen.py` is a minimal end-to-end example: it runs OnnxOCR on one image, sends the full OCR text into Qwen3.5-2B ONNX, and writes structured ID-card front fields to JSON.
+
+Default example:
+
+```bash
+python examples/id_card_extract_with_qwen.py
+```
+
+Specify an image explicitly:
+
+```bash
+python examples/id_card_extract_with_qwen.py --image "onnxocr/test_images/8f113149-ff64-4c9f-8dc0-e34100365aa4.jpg"
+```
+
+Output:
+
+```text
+result_img/id_card_front_qwen_extract.json
+```
+
+The script does not print sensitive ID-card fields by default. Use `--show-sensitive` only in a trusted local environment.
 
 ## License Plate Recognition
 

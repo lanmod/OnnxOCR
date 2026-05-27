@@ -16,6 +16,12 @@
 
 ## 版本更新
 
+- **2026.05.27**
+  1. 新增 OCR + Qwen3.5-2B ONNX 信息抽取使用方法。
+  2. 新增 `examples/qwen35_2b_onnx.py`，用于 Qwen3.5-2B ONNX 模型下载、校验和纯 Python 推理。
+  3. 新增 `examples/id_card_extract_with_qwen.py` 端到端示例：先用 OnnxOCR 做全量文字识别，再用 Qwen3.5-2B 抽取身份证结构化字段。
+  4. Qwen3.5-2B ONNX 使用独立 ModelScope 仓库：[supersong/qwen2bonnx](https://www.modelscope.cn/models/supersong/qwen2bonnx/tree/master/models)。
+
 - **2026.05.01**
   1. 新增 ONNX 车牌检测与车牌号识别能力。
   2. 新增基于 RapidTable 的 ONNX 表格识别能力。
@@ -88,6 +94,39 @@ python scripts/download_models.py --source huggingface --hf-endpoint https://hf-
 python scripts/download_models.py --check-only
 ```
 
+### Qwen3.5-2B 信息抽取基座
+
+OnnxOCR 也可以在 OCR 之后接入本地 Qwen3.5-2B ONNX 模型，作为信息抽取基座使用。典型流程是：
+
+- 先用 OnnxOCR 对图片做全量文字识别，得到文本和文本框。
+- 再把 OCR 文本交给 Qwen3.5-2B ONNX，抽取为结构化 JSON。
+- OCR 和抽取都在本地通过 Python + ONNXRuntime 运行，不依赖 JS。
+
+Qwen3.5-2B ONNX 使用独立模型仓库，和车牌、表格、版面分析等可选 OCR 模型不是同一个下载地址：
+
+- ModelScope：[supersong/qwen2bonnx](https://www.modelscope.cn/models/supersong/qwen2bonnx/tree/master/models)
+- 本地目录：`onnxocr/models/qwen_2b`
+
+准备 Qwen3.5-2B ONNX 模型：
+
+```bash
+python examples/qwen35_2b_onnx.py download --variant q4
+python examples/qwen35_2b_onnx.py verify
+```
+
+模型默认放在：
+
+```text
+onnxocr/models/qwen_2b
+```
+
+纯 Python 文本/图文推理冒烟测试：
+
+```bash
+python examples/qwen35_2b_onnx.py run-python --prompt "你好，简单介绍一下你自己。"
+python examples/qwen35_2b_onnx.py run-python --image onnxocr/models/qwen_2b/images/demo.jpeg --prompt "用一句话描述这张图片。"
+```
+
 ## 一键运行
 
 ```bash
@@ -119,6 +158,30 @@ model = ONNXPaddleOcr(use_angle_cls=False, use_gpu=False)
 result = model.ocr(img)
 print(result)
 ```
+
+## OCR + Qwen 信息抽取
+
+`examples/id_card_extract_with_qwen.py` 是一个最小端到端示例：先对单张图片运行 OnnxOCR 全量识别，再把 OCR 文本送入 Qwen3.5-2B ONNX，最后把身份证正面字段结构化写入 JSON。
+
+默认示例：
+
+```bash
+python examples/id_card_extract_with_qwen.py
+```
+
+指定图片路径：
+
+```bash
+python examples/id_card_extract_with_qwen.py --image "onnxocr/test_images/8f113149-ff64-4c9f-8dc0-e34100365aa4.jpg"
+```
+
+输出文件：
+
+```text
+result_img/id_card_front_qwen_extract.json
+```
+
+脚本默认不会在控制台打印身份证敏感字段，只会写入本地 JSON。仅在可信本地环境中使用 `--show-sensitive` 查看抽取明细。
 
 ## 车牌识别
 
