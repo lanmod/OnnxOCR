@@ -18,7 +18,7 @@ English | [简体中文](./Readme_cn.md) | [日本語](./Readme_ja.md)
 
 - **2026.05.27**
   1. Added a new OCR + Qwen3.5-2B ONNX information-extraction workflow.
-  2. Added `examples/qwen35_2b_onnx.py` for Qwen3.5-2B ONNX download, verification, and pure Python inference.
+  2. Added `onnxocr.qwen35_2b` as the package-level Qwen3.5-2B ONNX download, verification, and pure Python inference module.
   3. Added `examples/id_card_extract_with_qwen.py` as an end-to-end example: OnnxOCR full-text recognition first, then Qwen3.5-2B extracts structured ID-card fields.
   4. Qwen3.5-2B ONNX uses a dedicated ModelScope repository: [supersong/qwen2bonnx](https://www.modelscope.cn/models/supersong/qwen2bonnx/tree/master/models).
 
@@ -121,6 +121,39 @@ python examples/qwen35_2b_onnx.py run-python --prompt "Hello, introduce yourself
 python examples/qwen35_2b_onnx.py run-python --image onnxocr/models/qwen_2b/images/demo.jpeg --prompt "Describe this image in one short sentence."
 ```
 
+Use the package API directly:
+
+```python
+from onnxocr.qwen35_2b import Qwen35ONNX
+
+qwen = Qwen35ONNX("onnxocr/models/qwen_2b")
+text, stopped = qwen.generate("Extract key fields from this OCR text: ...")
+print(text)
+```
+
+DIY a new extraction scenario:
+
+```python
+from onnxocr.qwen35_2b import ExtractionTemplate, QwenScenarioExtractor
+
+invoice_template = ExtractionTemplate(
+    name="invoice_basic",
+    description="invoice OCR",
+    fields=["invoice_number", "seller", "buyer", "amount", "date"],
+    rules=[
+        "Extract fields only from the OCR text.",
+        "Use an empty string when a field is missing or uncertain.",
+        "Return JSON only.",
+    ],
+)
+
+extractor = QwenScenarioExtractor(model_dir="onnxocr/models/qwen_2b")
+fields, raw = extractor.extract(ocr_text, template=invoice_template)
+print(fields)
+```
+
+The base package does not ship vertical-scene prompts. Put scenario-specific templates in your application or under `examples/`, then pass the template into `QwenScenarioExtractor`. You can add templates for invoices, business licenses, contracts, logistics waybills, medical reports, or any other vertical OCR scene by defining fields and rules.
+
 ## One-Click Run
 
 ```bash
@@ -155,7 +188,7 @@ print(result)
 
 ## OCR + Qwen Information Extraction
 
-`examples/id_card_extract_with_qwen.py` is a minimal end-to-end example: it runs OnnxOCR on one image, sends the full OCR text into Qwen3.5-2B ONNX, and writes structured ID-card front fields to JSON.
+`examples/id_card_extract_with_qwen.py` is a minimal end-to-end vertical-scene example. The reusable Qwen inference and generic template extraction code lives in `onnxocr.qwen35_2b`; the ID-card fields and prompt rules live only in this example.
 
 Default example:
 
